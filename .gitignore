@@ -1,0 +1,4 @@
+# Claude Orchestrator 的项目内运行记录只用于本地复盘，默认不提交到规则仓库。
+.codex-claude-runs/
+.codex-claude-runs-test/
+skills/claude-orchestrator-runtime-gate-notes/

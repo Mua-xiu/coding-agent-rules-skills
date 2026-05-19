@@ -1,6 +1,6 @@
 # Coding Agent Rules & Skills
 
-这个仓库用于集中维护个人常用的 Coding Agent 协作规则和 Claude Code skills，方便同步到 GitHub 后在不同项目、不同机器、不同 coding 工具中复用。
+这个仓库用于集中维护个人常用的 Coding Agent 协作规则、Codex skills 和 Claude Code skills，方便同步到 GitHub 后在不同项目、不同机器、不同 coding 工具中复用。
 
 ## 目录结构
 
@@ -8,13 +8,18 @@
 .
 ├── AGENTS.md                         # Codex 等支持 AGENTS.md 的 coding agent 通用规则模板
 └── skills/
-    └── daily-log-sync/               # Claude Code 日志同步 skill
+    ├── daily-log-sync/               # Claude Code 日志同步 skill
+    │   ├── SKILL.md
+    │   ├── README.md
+    │   ├── reference.md
+    │   ├── template.md
+    │   ├── LICENSE
+    │   └── examples/
+    └── claude-orchestrator/          # Codex 调度本机 Claude Code 协作的 skill
         ├── SKILL.md
-        ├── README.md
-        ├── reference.md
-        ├── template.md
-        ├── LICENSE
-        └── examples/
+        ├── agents/openai.yaml
+        ├── scripts/
+        └── references/
 ```
 
 ## 通用规则文件
@@ -95,6 +100,68 @@ cp -R skills/daily-log-sync "C:/Users/kin/.claude/skills/"
 
 如果当天日志已存在，会优先读取并增量更新，不会重复新建。
 
+## claude-orchestrator skill
+
+[claude-orchestrator](skills/claude-orchestrator/) 用于在 Codex 中显式委派本机 Claude Code 协作：Codex 接收用户任务后，按固定分工选择 `xhxGPT`、`deepseek`、`mimo` 三个 Claude/provider profile，切换账号配置并让 Claude Code 完成边界明确的子任务，最后由 Codex 检查真实 diff、测试结果和风险后决定是否接受。
+
+这个 skill 适合：
+
+- 让 Claude Code 做独立审查、批量修改、测试补齐、文档整理；
+- 使用不同 Claude/provider 账号处理不同风险等级的任务；
+- 需要在切换账号或结束 Claude 会话前留下 handoff；
+- 需要 Codex 对 Claude 的最终产物做验收。
+
+这个 skill 不适合普通小改动默认自动触发。它会调用外部模型、切换本机 Claude profile，并可能修改项目文件，因此推荐使用显式入口：
+
+```text
+/claude-orchestrator <任务描述>
+```
+
+如果当前 Codex 环境使用 `$skill` 形式，则使用：
+
+```text
+$claude-orchestrator <任务描述>
+```
+
+固定分工如下：
+
+| Profile | 适合任务 |
+| --- | --- |
+| `xhxGPT` | 架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查。 |
+| `deepseek` | 明确边界后的功能实现、代码清理、测试补齐、文档补充、结构化跟进。 |
+| `mimo` | 格式化类修改、模板更新、简单文件移动、重复文本清理、低风险批量整理。 |
+
+初次使用时，需要先把当前 Claude Code 账号/provider 保存为 profile：
+
+```powershell
+$CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
+$SkillDir = Join-Path $CodexHome "skills\claude-orchestrator"
+node "$SkillDir\scripts\switch-api.js" --init-current mimo
+node "$SkillDir\scripts\switch-api.js" --init-current deepseek
+node "$SkillDir\scripts\switch-api.js" --init-current xhxGPT
+```
+
+`$SkillDir` 在同一个 PowerShell 会话中只需要定义一次；`--status` 只是查看当前配置的可选检查命令，不是保存 profile 的必需步骤。
+
+日常委派任务时，Codex 按固定分工选择 profile，然后切换账号并启动 Claude：
+
+```powershell
+node "$SkillDir\scripts\switch-api.js" deepseek
+claude
+```
+
+完整命令清单见 [usage.md](skills/claude-orchestrator/references/usage.md)。
+
+账号/profile 快照保存在用户目录，不放入本仓库：
+
+```text
+~/.claude/profiles/<profile>/
+```
+
+动态角色配置和硬门禁方案已经移出 active skill，作为备忘保存在 [claude-orchestrator-runtime-gate-notes](skills/claude-orchestrator-runtime-gate-notes/)。该目录不是 skill，只用于记录后续如果改做插件、CLI 或 hook 时可参考的方案。
+
+更完整的使用说明见 [usage.md](skills/claude-orchestrator/references/usage.md)，账号/profile 管理说明见 [profile-management.md](skills/claude-orchestrator/references/profile-management.md)。
+
 ## 在新项目中使用规则
 
 推荐先复制通用规则模板，再按目标 Agent 的默认规则文件名落地：
@@ -125,3 +192,4 @@ AGENTS.md
 - Claude Code 使用 `CLAUDE.md` 时，不建议只写“引用 AGENTS.md”，应直接放入完整规则，避免规则没有被稳定携带。
 - Codex 等支持 [AGENTS.md](AGENTS.md) 的工具，直接使用 [AGENTS.md](AGENTS.md)，并确保其中是完整规则正文。
 - Skill 的详细规则维护在 [skills/daily-log-sync/SKILL.md](skills/daily-log-sync/SKILL.md)。
+- Codex 调度 Claude Code 协作的详细规则维护在 [skills/claude-orchestrator/SKILL.md](skills/claude-orchestrator/SKILL.md)。
