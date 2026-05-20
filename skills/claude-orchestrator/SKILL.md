@@ -1,11 +1,11 @@
 ---
 name: claude-orchestrator
-description: Explicit-command skill for Codex to delegate bounded local coding work to Claude Code with fixed profile selection rules for xhxGPT, deepseek, and mimo, switch the local Claude/provider profile when needed, require handoff discipline, and have Codex review real artifacts before accepting. Use only when the user explicitly invokes this skill, asks Codex to delegate to Claude Code, or requests Claude account/profile orchestration; do not invoke for ordinary coding tasks by default.
+description: Explicit-command skill for Codex to delegate bounded local coding work to Claude Code with fixed profile selection rules for architect, implementer, and mechanic, switch the local Claude/provider profile when needed, require handoff discipline, and have Codex review real artifacts before accepting. Use only when the user explicitly invokes this skill, asks Codex to delegate to Claude Code, or requests Claude account/profile orchestration; do not invoke for ordinary coding tasks by default.
 ---
 
 # Claude Orchestrator
 
-此 skill 用于让 Codex 主导 Claude Code 协作：用户在 Codex 中提出任务，Codex 判断是否适合委派，按固定账号分工选择 `xhxGPT`、`deepseek` 或 `mimo`，切换 Claude profile 后让 Claude 完成边界明确的子任务，最后由 Codex 审查真实产物。
+此 skill 用于让 Codex 主导 Claude Code 协作：用户在 Codex 中提出任务，Codex 判断是否适合委派，按固定账号分工选择 `architect`、`implementer` 或 `mechanic`，切换 Claude profile 后让 Claude 完成边界明确的子任务，最后由 Codex 审查真实产物。
 
 ## 触发方式
 
@@ -24,9 +24,11 @@ description: Explicit-command skill for Codex to delegate bounded local coding w
 
 ## 账号分工
 
-- 使用 `xhxGPT` 处理高判断成本任务：架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查，以及判断错误代价较高的任务。
-- 使用 `deepseek` 处理中等复杂度执行任务：明确边界后的功能实现、代码清理、测试补齐、文档补充和结构化跟进工作。
-- 使用 `mimo` 处理低风险机械任务：格式化类修改、模板更新、简单文件移动、重复文本清理和低风险批量整理。
+profile 名称按任务职责命名，而不是按具体模型或账号命名。这样做是为了让 Codex 根据“任务需要什么能力”稳定选择 profile；用户可以把 Claude、Gemini、DeepSeek、Mimo 或其他 provider 账号保存到对应职责名下。
+
+- 使用 `architect` 处理高判断成本任务：架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查，以及判断错误代价较高的任务。建议绑定推理、架构判断和风险识别能力最强的账号。
+- 使用 `implementer` 处理中等复杂度执行任务：明确边界后的功能实现、代码清理、测试补齐、文档补充和结构化跟进工作。建议绑定执行稳定、成本适中、适合持续改代码的账号。
+- 使用 `mechanic` 处理低风险机械任务：格式化类修改、模板更新、简单文件移动、重复文本清理和低风险批量整理。建议绑定成本低、速度快、适合重复整理的账号。
 
 如果任务不适合任何 Claude profile，或者调用 Claude 的成本高于直接处理，Codex 应自己完成。
 
@@ -42,9 +44,9 @@ $SkillDir = Join-Path $CodexHome "skills\claude-orchestrator"
 切换命令：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" xhxGPT
-node "$SkillDir\scripts\switch-api.js" deepseek
-node "$SkillDir\scripts\switch-api.js" mimo
+node "$SkillDir\scripts\switch-api.js" architect
+node "$SkillDir\scripts\switch-api.js" implementer
+node "$SkillDir\scripts\switch-api.js" mechanic
 ```
 
 启动 Claude：
@@ -52,27 +54,6 @@ node "$SkillDir\scripts\switch-api.js" mimo
 ```powershell
 claude
 ```
-
-如果旧流程依赖 `node ~/.claude/switch-api.js <profile>`，可以把本 skill 的 `scripts/switch-api.js` 复制到 `~/.claude/switch-api.js` 后继续使用旧命令。
-
-## 初次保存账号
-
-初次保存每个 Claude/provider 账号时，先手动让 Claude Code 处在目标账号配置下，然后保存当前配置：
-
-```powershell
-node "$SkillDir\scripts\switch-api.js" --init-current xhxGPT
-node "$SkillDir\scripts\switch-api.js" --init-current deepseek
-node "$SkillDir\scripts\switch-api.js" --init-current mimo
-```
-
-查看 profile 和当前状态：
-
-```powershell
-node "$SkillDir\scripts\switch-api.js" --list
-node "$SkillDir\scripts\switch-api.js" --status
-```
-
-`--status` 只是查看状态，不会保存、覆盖或切换 profile。
 
 ## 委派规则
 
@@ -147,9 +128,9 @@ Return:
 
 ```text
 Claude 协作记录：
-- xhxGPT：负责 xxx 高风险审查。
-- deepseek：负责 xxx 实现或测试。
-- mimo：负责 xxx 机械整理。
+- architect：负责 xxx 高风险审查。
+- implementer：负责 xxx 实现或测试。
+- mechanic：负责 xxx 机械整理。
 ```
 
 如果没有实际调用 Claude，则写：

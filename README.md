@@ -102,7 +102,7 @@ cp -R skills/daily-log-sync "C:/Users/kin/.claude/skills/"
 
 ## claude-orchestrator skill
 
-[claude-orchestrator](skills/claude-orchestrator/) 用于在 Codex 中显式委派本机 Claude Code 协作：Codex 接收用户任务后，按固定分工选择 `xhxGPT`、`deepseek`、`mimo` 三个 Claude/provider profile，切换账号配置并让 Claude Code 完成边界明确的子任务，最后由 Codex 检查真实 diff、测试结果和风险后决定是否接受。
+[claude-orchestrator](skills/claude-orchestrator/) 用于在 Codex 中显式委派本机 Claude Code 协作：Codex 接收用户任务后，按固定分工选择 `architect`、`implementer`、`mechanic` 三个 Claude/provider profile，切换账号配置并让 Claude Code 完成边界明确的子任务，最后由 Codex 检查真实 diff、测试结果和风险后决定是否接受。
 
 这个 skill 适合：
 
@@ -123,22 +123,28 @@ cp -R skills/daily-log-sync "C:/Users/kin/.claude/skills/"
 $claude-orchestrator <任务描述>
 ```
 
-固定分工如下：
+固定分工如下。profile 名称按职责命名，不绑定具体模型厂商；初次配置时，把你当前最适合该职责的 Claude、Gemini、DeepSeek、Mimo 或其他 provider 账号保存到对应 profile 即可。如果暂时只有一个可用账号，也可以把三个 profile 都保存为同一个实际账号，例如都绑定 Claude 或都绑定 DeepSeek。
 
-| Profile | 适合任务 |
-| --- | --- |
-| `xhxGPT` | 架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查。 |
-| `deepseek` | 明确边界后的功能实现、代码清理、测试补齐、文档补充、结构化跟进。 |
-| `mimo` | 格式化类修改、模板更新、简单文件移动、重复文本清理、低风险批量整理。 |
+| Profile | 建议绑定的账号能力 | 适合任务 |
+| --- | --- | --- |
+| `architect` | 推理、架构判断、风险识别能力最强的账号 | 架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查。 |
+| `implementer` | 执行稳定、成本适中、适合持续改代码的账号 | 明确边界后的功能实现、代码清理、测试补齐、文档补充、结构化跟进。 |
+| `mechanic` | 成本低、速度快、适合重复整理的账号 | 格式化类修改、模板更新、简单文件移动、重复文本清理、低风险批量整理。 |
 
-初次使用时，需要先把当前 Claude Code 账号/provider 保存为 profile：
+初次使用时，需要先手动切到对应能力的 Claude Code 账号/provider，再把当前配置保存为 profile。下面三个命令分别保存高判断成本任务、中等复杂度执行和低风险机械任务的 profile：
 
 ```powershell
 $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
 $SkillDir = Join-Path $CodexHome "skills\claude-orchestrator"
-node "$SkillDir\scripts\switch-api.js" --init-current mimo
-node "$SkillDir\scripts\switch-api.js" --init-current deepseek
-node "$SkillDir\scripts\switch-api.js" --init-current xhxGPT
+
+# 切到适合高判断成本任务的账号/provider 后执行
+node "$SkillDir\scripts\switch-api.js" --init-current architect
+
+# 切到适合中等复杂度执行任务的账号/provider 后执行
+node "$SkillDir\scripts\switch-api.js" --init-current implementer
+
+# 切到适合低风险机械任务的账号/provider 后执行
+node "$SkillDir\scripts\switch-api.js" --init-current mechanic
 ```
 
 `$SkillDir` 在同一个 PowerShell 会话中只需要定义一次；`--status` 只是查看当前配置的可选检查命令，不是保存 profile 的必需步骤。
@@ -146,7 +152,7 @@ node "$SkillDir\scripts\switch-api.js" --init-current xhxGPT
 日常委派任务时，Codex 按固定分工选择 profile，然后切换账号并启动 Claude：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" deepseek
+node "$SkillDir\scripts\switch-api.js" implementer
 claude
 ```
 
@@ -158,7 +164,7 @@ claude
 ~/.claude/profiles/<profile>/
 ```
 
-动态角色配置和硬门禁方案已经移出 active skill，作为备忘保存在 [claude-orchestrator-runtime-gate-notes](skills/claude-orchestrator-runtime-gate-notes/)。该目录不是 skill，只用于记录后续如果改做插件、CLI 或 hook 时可参考的方案。
+动态角色配置和硬门禁方案已经移出 active skill，作为备忘保存在同级 notes 目录中。该目录不是 skill，只用于记录后续如果改做插件、CLI 或 hook 时可参考的方案。
 
 更完整的使用说明见 [usage.md](skills/claude-orchestrator/references/usage.md)，账号/profile 管理说明见 [profile-management.md](skills/claude-orchestrator/references/profile-management.md)。
 

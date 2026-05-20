@@ -1,7 +1,7 @@
 interface:
   display_name: "Claude Orchestrator"
   short_description: "Delegate local Claude Code work."
-  default_prompt: "Use $claude-orchestrator to route a bounded local coding task to xhxGPT, deepseek, or mimo by fixed profile rules, switch the Claude profile when needed, require a handoff, and review the changed files before accepting."
+  default_prompt: "Use $claude-orchestrator to route a bounded local coding task to architect, implementer, or mechanic by fixed profile rules, switch the Claude profile when needed, require a handoff, and review the changed files before accepting."
 
 policy:
   allow_implicit_invocation: false

@@ -7,7 +7,7 @@
 ```text
 用户在 Codex 中提出任务
 -> Codex 判断是否适合委派
--> Codex 按固定分工选择 xhxGPT / deepseek / mimo
+-> Codex 按固定分工选择 architect / implementer / mechanic
 -> Codex 切换 Claude profile
 -> Codex 启动 Claude 并发送边界明确的任务
 -> Claude 返回 handoff
@@ -32,11 +32,17 @@ $claude-orchestrator 帮我让 Claude Code 补齐测试，并由 Codex 审查
 
 当前版本采用固定 profile 约定，不再要求用户维护 `profile-roles.json`。
 
-| Profile | 适合任务 | 不适合任务 |
-| --- | --- | --- |
-| `xhxGPT` | 架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查 | 低价值机械修改 |
-| `deepseek` | 明确边界后的功能实现、代码清理、测试补齐、文档补充、结构化跟进 | 高风险架构判断 |
-| `mimo` | 格式化类修改、模板更新、简单文件移动、重复文本清理、低风险批量整理 | 复杂实现和高风险审查 |
+这三个 profile 名称表示任务职责，不表示具体模型厂商或账号名称。初次配置时，只需要把当前最适合该职责的 Claude/provider 账号保存到对应 profile：高判断成本账号保存为 `architect`，中等复杂度执行账号保存为 `implementer`，低风险机械整理账号保存为 `mechanic`。
+
+如果暂时只有一个可用模型账号，也可以把 `architect`、`implementer`、`mechanic` 都保存为同一个实际账号，例如三者都绑定 Claude，或三者都绑定 DeepSeek。这样做仍然有意义：Codex 会按任务职责选择 profile，后续你有更合适的账号时，只需要重新保存对应 profile，不需要改 skill 规则。
+
+| Profile | 建议绑定的账号能力 | 适合任务 | 不适合任务 |
+| --- | --- | --- | --- |
+| `architect` | 推理、架构判断、风险识别能力最强的账号，例如 Claude、Gemini 或其他高能力模型账号 | 架构审查、风险删除、图/Schema 变更、大范围重构、安全/认证/数据风险审查 | 低价值机械修改 |
+| `implementer` | 执行稳定、成本适中、适合持续改代码的账号，例如 DeepSeek 或其他代码执行型账号 | 明确边界后的功能实现、代码清理、测试补齐、文档补充、结构化跟进 | 高风险架构判断 |
+| `mechanic` | 成本低、速度快、适合重复整理的账号，例如 Mimo 或其他轻量账号 | 格式化类修改、模板更新、简单文件移动、重复文本清理、低风险批量整理 | 复杂实现和高风险审查 |
+
+不建议把 profile 改成具体厂商名或个人账号名，因为 Codex 的分工规则需要稳定名称。如果确实要改名，必须同步修改 `SKILL.md`、本说明文档和所有命令示例。
 
 如果任务很小、边界不清、或调用 Claude 的成本高于直接处理，Codex 应自己完成。
 
@@ -61,19 +67,19 @@ $SkillDir = Join-Path $CodexHome "skills\claude-orchestrator"
 claude --version
 ```
 
-2. 手动把 Claude Code 切到目标账号/provider，例如 `xhxGPT`。
+2. 手动把 Claude Code 切到适合高判断成本任务的账号/provider，例如 Claude、Gemini 或其他高能力模型账号。
 
-3. 保存当前配置为 profile：
+3. 保存当前配置为高判断成本 profile：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" --init-current xhxGPT
+node "$SkillDir\scripts\switch-api.js" --init-current architect
 ```
 
-4. 对 `deepseek`、`mimo` 重复同样流程：
+4. 再分别切到适合中等复杂度执行、低风险机械整理的账号/provider 后，重复保存：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" --init-current deepseek
-node "$SkillDir\scripts\switch-api.js" --init-current mimo
+node "$SkillDir\scripts\switch-api.js" --init-current implementer
+node "$SkillDir\scripts\switch-api.js" --init-current mechanic
 ```
 
 5. 查看已保存的 profile：
@@ -93,11 +99,11 @@ node "$SkillDir\scripts\switch-api.js" --status
 ## 日常委派流程
 
 1. Codex 先判断是否值得委派。
-2. 按固定分工选择 `xhxGPT`、`deepseek` 或 `mimo`。
+2. 按固定分工选择 `architect`、`implementer` 或 `mechanic`。
 3. 切换 Claude profile 并启动 Claude：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" deepseek
+node "$SkillDir\scripts\switch-api.js" implementer
 claude
 ```
 
@@ -130,16 +136,16 @@ Return:
 | 命令 | 作用 | 常见场景 |
 | --- | --- | --- |
 | `node "$SkillDir\scripts\switch-api.js" --help` | 查看脚本帮助。 | 不确定参数时先看帮助。 |
-| `node "$SkillDir\scripts\switch-api.js" --init-current xhxGPT` | 把当前 Claude live 配置保存为 `xhxGPT` profile。 | 初次配置或重新保存账号。 |
-| `node "$SkillDir\scripts\switch-api.js" --init-current deepseek` | 把当前 Claude live 配置保存为 `deepseek` profile。 | 初次配置或重新保存账号。 |
-| `node "$SkillDir\scripts\switch-api.js" --init-current mimo` | 把当前 Claude live 配置保存为 `mimo` profile。 | 初次配置或重新保存账号。 |
-| `node "$SkillDir\scripts\switch-api.js" xhxGPT` | 切换到 `xhxGPT` profile。 | 高风险审查或架构判断。 |
-| `node "$SkillDir\scripts\switch-api.js" deepseek` | 切换到 `deepseek` profile。 | 中等复杂度实现、测试、文档。 |
-| `node "$SkillDir\scripts\switch-api.js" mimo` | 切换到 `mimo` profile。 | 低风险机械修改。 |
+| `node "$SkillDir\scripts\switch-api.js" --init-current architect` | 把当前 Claude live 配置保存为 `architect` profile。 | 初次配置或重新保存账号。 |
+| `node "$SkillDir\scripts\switch-api.js" --init-current implementer` | 把当前 Claude live 配置保存为 `implementer` profile。 | 初次配置或重新保存账号。 |
+| `node "$SkillDir\scripts\switch-api.js" --init-current mechanic` | 把当前 Claude live 配置保存为 `mechanic` profile。 | 初次配置或重新保存账号。 |
+| `node "$SkillDir\scripts\switch-api.js" architect` | 切换到 `architect` profile。 | 高风险审查或架构判断。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer` | 切换到 `implementer` profile。 | 中等复杂度实现、测试、文档。 |
+| `node "$SkillDir\scripts\switch-api.js" mechanic` | 切换到 `mechanic` profile。 | 低风险机械修改。 |
 | `node "$SkillDir\scripts\switch-api.js" --list` | 列出所有 profile，并标记当前 active profile。 | 查看已有账号配置。 |
 | `node "$SkillDir\scripts\switch-api.js" --status` | 查看当前 Claude live 配置摘要，token 会被遮蔽。 | 排查当前是否切到预期账号。 |
-| `node "$SkillDir\scripts\switch-api.js" deepseek --dry-run` | 预览切换会复制哪些文件，不实际改配置。 | 切换前确认路径。 |
-| `node "$SkillDir\scripts\switch-api.js" deepseek --no-backup` | 切换 profile 但不备份当前 live 配置。 | 只在明确不需要回滚时使用。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --dry-run` | 预览切换会复制哪些文件，不实际改配置。 | 切换前确认路径。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --no-backup` | 切换 profile 但不备份当前 live 配置。 | 只在明确不需要回滚时使用。 |
 | `node "$SkillDir\scripts\switch-api.js" --profiles-root "D:\profiles" --list` | 使用自定义 profile 根目录。 | 不想把 profile 放在默认用户目录时。 |
 
 ## 账号配置和备份位置
@@ -197,9 +203,9 @@ Codex 验收时优先看：
 
 ```text
 Claude 协作记录：
-- xhxGPT：负责 xxx 高风险审查。
-- deepseek：负责 xxx 实现或测试。
-- mimo：负责 xxx 机械整理。
+- architect：负责 xxx 高风险审查。
+- implementer：负责 xxx 实现或测试。
+- mechanic：负责 xxx 机械整理。
 
 Codex 验收：
 已检查 diff，并运行 xxx 测试；未发现需要返工的问题。
