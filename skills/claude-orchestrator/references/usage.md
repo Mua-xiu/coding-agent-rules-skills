@@ -6,6 +6,7 @@
 
 ```text
 用户在 Codex 中提出任务
+-> Codex 忽略上一轮 Claude 协作记录中的默认角色和旧任务
 -> Codex 判断是否适合委派
 -> Codex 按固定分工选择 architect / implementer / mechanic
 -> Codex 切换 Claude profile
@@ -98,8 +99,8 @@ node "$SkillDir\scripts\switch-api.js" --status
 
 ## 日常委派流程
 
-1. Codex 先判断是否值得委派。
-2. 按固定分工选择 `architect`、`implementer` 或 `mechanic`。
+1. Codex 只根据本次用户请求和当前仓库状态判断是否值得委派，不直接复用上一次 Claude 的角色、任务或 prompt。
+2. 按本次任务的实际风险、复杂度和交付物重新选择 `architect`、`implementer` 或 `mechanic`。
 3. 切换 Claude profile 并启动 Claude：
 
 ```powershell
@@ -127,7 +128,50 @@ Return:
 - Remaining issues
 ```
 
-5. Codex 根据真实 diff 和验证结果验收，不接受只来自 Claude 自述的结论。
+5. 如果通过非交互命令调用 Claude，按任务边界补齐权限和超时：
+
+```powershell
+$prompt = @'
+You are working in C:\path\to\project.
+Read-only analysis only.
+
+Inspect:
+- C:\path\to\project\src\feature.ts
+- D:\external-reference\legacy.html
+
+Do not edit files.
+Return concise structured findings.
+'@
+
+claude -p $prompt `
+  --output-format text `
+  --permission-mode dontAsk `
+  --add-dir "D:\external-reference" `
+  --allowedTools Read,Glob,Grep `
+  --effort low
+```
+
+当目标文件或参考资料不在 `You are working in ...` 指定的工作目录内时，必须为外部目录添加 `--add-dir`。只读分析优先限制为 `Read,Glob,Grep`，并使用 `--effort low` 降低响应时间。通过 Codex shell 调用时，命令等待时间建议至少 180 秒。
+
+6. Codex 根据真实 diff 和验证结果验收，不接受只来自 Claude 自述的结论。
+
+## 会话连续性边界
+
+`Claude 协作记录` 和 handoff 是审查、续作和排障材料，不是下一次 skill 调用的默认调度计划。
+
+- 新任务或新一次独立调用时，必须重新分析任务，再决定是否委派以及选择哪个 profile。
+- 只有用户明确说“继续上次 Claude 任务”“按 handoff 接着做”，或当前任务明显依赖上一轮未完成工作时，才读取旧 handoff。
+- 即使读取旧 handoff，也要重新确认本次任务边界、允许修改范围、验证命令和 profile 选择。
+- 最终回复里的 `architect`、`implementer`、`mechanic` 记录只说明上一轮实际分工，不能作为下一轮默认角色安排。
+
+## Claude 调用超时排查
+
+常见“权限超时”不一定是 Codex 权限不足，可能是 Claude Code 的权限模式、跨目录读取和当前 profile 配置叠加导致。
+
+- `--permission-mode dontAsk` 读取工作目录外文件时，应同步使用 `--add-dir <外部目录>`。
+- 当前 profile 如果使用较高 `effortLevel`、自定义 `ANTHROPIC_BASE_URL` 或模型别名，文件读取和工具调用可能明显变慢。
+- 一次 prompt 同时要求读取多个大文件、分析状态机、追踪资源路径时，优先拆成多个小任务。
+- 完全可信的本地目录中，如只为避免权限弹窗和超时，可临时使用 `--dangerously-skip-permissions --effort low`；该方式会绕过权限确认，不应作为默认命令模板。
 
 ## 命令清单：switch-api.js
 

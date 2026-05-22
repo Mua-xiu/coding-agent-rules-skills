@@ -15,12 +15,13 @@ description: Explicit-command skill for Codex to delegate bounded local coding w
 
 ## 工作流程
 
-1. 判断任务是否适合委派：适合审查、批量修改、文档、测试补齐、中高复杂度实现；简单直接改动由 Codex 自己完成。
-2. 按固定分工选择 Claude profile，而不是动态询问用户配置角色。
-3. 使用 `scripts/switch-api.js` 切换到目标 profile。
-4. 启动 `claude`，发送边界明确的任务，并要求 Claude 返回结构化 handoff。
-5. Codex 检查真实 diff、测试结果、修改范围和用户目标，不把 Claude 自述当作验收依据。
-6. 不合格时最多委派一次更具体的返工任务；仍不合格则 Codex 停止委派并本地接管。
+1. 每次触发本 skill 时，先只根据本次用户请求和当前仓库状态重新判断任务，不沿用上一次 Claude 协作记录中的 profile、任务或 prompt。
+2. 判断任务是否适合委派：适合审查、批量修改、文档、测试补齐、中高复杂度实现；简单直接改动由 Codex 自己完成。
+3. 按本次任务的实际风险、复杂度和交付物重新选择 Claude profile，而不是动态询问用户配置角色，也不是复用上一次选择。
+4. 使用 `scripts/switch-api.js` 切换到目标 profile。
+5. 启动 `claude`，发送边界明确的任务，并要求 Claude 返回结构化 handoff。
+6. Codex 检查真实 diff、测试结果、修改范围和用户目标，不把 Claude 自述当作验收依据。
+7. 不合格时最多委派一次更具体的返工任务；仍不合格则 Codex 停止委派并本地接管。
 
 ## 账号分工
 
@@ -57,8 +58,13 @@ claude
 
 ## 委派规则
 
+- 每次委派前必须重新写出本次 Claude 子任务；不得直接复用历史会话中的 Claude 角色分配、旧 prompt 或最终反馈里的“Claude 协作记录”。
+- 只有用户明确要求继续同一个未完成任务，或当前任务本身依赖上一轮 Claude handoff 时，才读取并引用旧 handoff；引用前仍要重新判断本次 profile 和任务边界。
 - 给 Claude 一个有边界的任务和明确交付物。
 - 写清工作目录、目标文件、允许修改的范围和禁止修改的范围。
+- 目标文件或参考资料位于工作目录外时，Claude 命令必须为每个外部目录显式添加 `--add-dir <path>`，避免 `dontAsk` 模式卡在跨目录授权。
+- 优先把 Claude 委派拆成小任务；只读分析、资料收集和排障类任务优先使用 `--effort low`，并限制 `--allowedTools Read,Glob,Grep`。
+- 通过命令行调用 Claude 时，将 Codex 的命令等待时间设为至少 180 秒；如果仍超时，缩小 prompt 范围或拆分任务后再试一次。
 - 写清需要运行的验证命令；如果不能运行，要求 Claude 说明原因。
 - 要求 Claude 返回：完成内容、改动文件、验证命令和结果、剩余风险或阻塞。
 - 每个 Claude 会话优先只处理一个子任务，除非多个任务强相关。
@@ -81,7 +87,7 @@ claude
 docs/claude-handoff-<topic>.md
 ```
 
-下一次 Claude 会话应以该 handoff 作为起点。
+只有继续同一个未完成任务时，下一次 Claude 会话才以该 handoff 作为起点；新任务或新一次独立调用不得把旧 handoff 当成默认任务来源。
 
 ## 验收规则
 
@@ -140,6 +146,7 @@ Claude 协作记录：未使用，本次由 Codex 直接完成。
 ```
 
 该说明只记录调度分工，不替代 Codex 对最终结果的审查结论；不要粘贴 token、完整日志或冗长过程。
+后续再次调用本 skill 时，不得把上一轮最终回复中的“Claude 协作记录”当作默认角色分配或任务安排。
 
 ## 安全规则
 
