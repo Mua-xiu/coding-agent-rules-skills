@@ -1,58 +1,47 @@
 # Coding Agent Rules & Skills
 
-这个仓库用于集中维护个人常用的 Coding Agent 协作规则、Codex skills 和 Claude Code skills，方便同步到 GitHub 后在不同项目、不同机器、不同 coding 工具中复用。
+这个仓库用于维护个人常用的 Coding Agent 协作规则模板、Codex skills、Claude Code skills，以及本仓库自身的 Agent 协作文档，方便同步到 GitHub 后在不同项目、不同机器和不同 coding 工具中复用。
 
 ## 目录结构
 
 ```text
 .
-├── AGENTS.md                         # Codex 等支持 AGENTS.md 的 coding agent 通用规则模板
+├── AGENTS.md                         # 本仓库专属渐进披露入口：元规则 + 规则索引 + 阅读路径
+├── AGENTS-template.md                # 可复制到其他项目的通用 Coding Agent 协作规则模板
+├── AGENTSDOC/
+│   ├── rules/
+│   │   └── global/
+│   │       ├── shared-skills.md       # 多 skill 共享脚本与状态读写协议纪律
+│   │       └── skill-script-i18n.md   # skill 脚本中英双语提示规范
+│   └── plans/                         # 本地过程文档工作台，默认不入库
 └── skills/
-    ├── daily-log-sync/               # Claude Code 日志同步 skill
-    │   ├── SKILL.md
-    │   ├── README.md
-    │   ├── reference.md
-    │   ├── template.md
-    │   ├── LICENSE
-    │   └── examples/
-    └── claude-orchestrator/          # Codex 调度本机 Claude Code 协作的 skill
-        ├── SKILL.md
-        ├── agents/openai.yaml
-        ├── scripts/
-        └── references/
+    ├── daily-log-sync/                # Claude Code 日志同步 skill
+    └── claude-orchestrator/           # Codex 调度本机 Claude Code 协作的 skill
 ```
 
-## 通用规则文件
+## 协作文档
 
-### AGENTS.md
+[AGENTS.md](AGENTS.md) 是本仓库专属入口，不是通用模板。它不重复通用协作规则，只维护本仓库的渐进披露规则索引：
 
-[AGENTS.md](AGENTS.md) 是推荐维护的通用规则模板，适合放跨工具通用的协作习惯，例如：
+1. Agent 先读取 `AGENTS.md`，确认本次任务是否命中项目专属规则。
+2. 按 `AGENTS.md` 中的索引读取命中的 `AGENTSDOC/rules/...` 细则。
+3. 未命中的细则不主动读取，避免上下文膨胀。
 
-- 使用中文回答和解释；
-- 优先推荐改动最小但有效可靠的方案；
-- 修改代码时保持中文注释习惯；
-- 不确定旧代码是否删除时先询问；
-- `/daily-log-sync` 日志同步规则入口。
+[AGENTSDOC/rules/](AGENTSDOC/rules/) 入库，用于保存本项目专属细则；规则索引统一维护在 [AGENTS.md](AGENTS.md) 中。
 
-后续如果通用规则需要调整，优先修改 [AGENTS.md](AGENTS.md)，再根据目标 Agent 的默认规则文件名复制或改名使用。
+`AGENTSDOC/plans/` 是本地工作台，用于计划、重构、复盘、基线等过程文档，默认不入库。入库文档不要链接到 `plans/` 下的具体文件，避免克隆仓库后出现死链。
 
-### 按 Agent 调整规则文件名
+## 通用规则模板
 
-不同 Coding Agent 自动读取的规则文件名不同。实际使用时，建议把 [AGENTS.md](AGENTS.md) 的内容直接复制或改名成目标 Agent 默认会读取的文件，而不是再通过另一个规则文件转引用。
+[AGENTS-template.md](AGENTS-template.md) 是可复制到其他项目的通用 Coding Agent 协作规则模板，保留跨项目通用的协作习惯，例如中文回复、最小有效改动、任务边界确认、中文注释规则和旧代码处理偏好。
 
-这样可以让 Agent 在启动时直接携带完整规则，减少“入口文件被读取了，但被引用文件没有稳定生效”导致的不按规则执行问题。
+使用时按目标工具的规则文件名复制或改名：
 
-常见用法示例：
+- Codex：复制为目标项目根目录的 `AGENTS.md`。
+- Claude Code：复制为目标项目根目录的 `CLAUDE.md`，或按当前 Claude Code 版本支持的规则入口放置。
+- 其他 Coding Agent：按对应工具文档要求，复制到它默认读取的规则文件名。
 
-- Claude Code：将 [AGENTS.md](AGENTS.md) 复制或改名为项目根目录的 `CLAUDE.md`，内容直接写完整规则。
-- Codex：直接使用项目根目录的 [AGENTS.md](AGENTS.md)，内容写完整规则。
-- 其他 Coding Agent：按对应工具文档要求，把同一份规则内容放到它默认会自动读取的规则文件名中。
-
-如果多个工具共用同一项目，可以保留多份入口文件，但应尽量让每个入口文件都包含完整规则正文，避免只依赖跨文件引用。
-
-### Codex / AGENTS.md
-
-[AGENTS.md](AGENTS.md) 是 Codex 等工具常见的规则入口。实际项目中应直接放入完整规则正文，避免只写一个转引用说明。
+注意：本仓库根目录的 [AGENTS.md](AGENTS.md) 是项目专属入口，不建议直接复制到其他项目；跨项目复用请使用 [AGENTS-template.md](AGENTS-template.md)。
 
 ## daily-log-sync skill
 
@@ -70,15 +59,7 @@
 - 最终修改结果；
 - 待后续完善问题。
 
-## 在 Claude Code 中使用 daily-log-sync
-
-将 skill 复制到 Claude Code 的 skills 目录，例如 Windows：
-
-```bash
-cp -R skills/daily-log-sync "C:/Users/kin/.claude/skills/"
-```
-
-安装后，在 Claude Code 中可以输入：
+安装到 Claude Code skills 目录后，可以输入：
 
 ```text
 /daily-log-sync
@@ -123,7 +104,7 @@ cp -R skills/daily-log-sync "C:/Users/kin/.claude/skills/"
 $claude-orchestrator <任务描述>
 ```
 
-固定分工如下。profile 名称按职责命名，不绑定具体模型厂商；初次配置时，把你当前最适合该职责的 Claude、Gemini、DeepSeek、Mimo 或其他 provider 账号保存到对应 profile 即可。如果暂时只有一个可用账号，也可以把三个 profile 都保存为同一个实际账号，例如都绑定 Claude 或都绑定 DeepSeek。
+固定分工如下。profile 名称按职责命名，不绑定具体模型厂商；初次配置时，把你当前最适合该职责的 Claude、Gemini、DeepSeek、Mimo 或其他 provider 账号保存到对应 profile 即可。
 
 | Profile | 建议绑定的账号能力 | 适合任务 |
 | --- | --- | --- |
@@ -131,32 +112,7 @@ $claude-orchestrator <任务描述>
 | `implementer` | 执行稳定、成本适中、适合持续改代码的账号 | 明确边界后的功能实现、代码清理、测试补齐、文档补充、结构化跟进。 |
 | `mechanic` | 成本低、速度快、适合重复整理的账号 | 格式化类修改、模板更新、简单文件移动、重复文本清理、低风险批量整理。 |
 
-初次使用时，需要先手动切到对应能力的 Claude Code 账号/provider，再把当前配置保存为 profile。下面三个命令分别保存高判断成本任务、中等复杂度执行和低风险机械任务的 profile：
-
-```powershell
-$CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
-$SkillDir = Join-Path $CodexHome "skills\claude-orchestrator"
-
-# 切到适合高判断成本任务的账号/provider 后执行
-node "$SkillDir\scripts\switch-api.js" --init-current architect
-
-# 切到适合中等复杂度执行任务的账号/provider 后执行
-node "$SkillDir\scripts\switch-api.js" --init-current implementer
-
-# 切到适合低风险机械任务的账号/provider 后执行
-node "$SkillDir\scripts\switch-api.js" --init-current mechanic
-```
-
-`$SkillDir` 在同一个 PowerShell 会话中只需要定义一次；`--status` 只是查看当前配置的可选检查命令，不是保存 profile 的必需步骤。
-
-日常委派任务时，Codex 按固定分工选择 profile，然后切换账号并启动 Claude：
-
-```powershell
-node "$SkillDir\scripts\switch-api.js" implementer
-claude
-```
-
-完整命令清单见 [usage.md](skills/claude-orchestrator/references/usage.md)。
+完整命令清单见 [usage.md](skills/claude-orchestrator/references/usage.md)，账号/profile 管理说明见 [profile-management.md](skills/claude-orchestrator/references/profile-management.md)。
 
 账号/profile 快照保存在用户目录，不放入本仓库：
 
@@ -164,38 +120,12 @@ claude
 ~/.claude/profiles/<profile>/
 ```
 
-动态角色配置和硬门禁方案已经移出 active skill，作为备忘保存在同级 notes 目录中。该目录不是 skill，只用于记录后续如果改做插件、CLI 或 hook 时可参考的方案。
-
-更完整的使用说明见 [usage.md](skills/claude-orchestrator/references/usage.md)，账号/profile 管理说明见 [profile-management.md](skills/claude-orchestrator/references/profile-management.md)。
-
-## 在新项目中使用规则
-
-推荐先复制通用规则模板，再按目标 Agent 的默认规则文件名落地：
-
-```text
-AGENTS.md                         # Codex 等工具使用，内容应直接包含完整规则
-CLAUDE.md                         # Claude Code 使用时可由 AGENTS.md 复制/改名得到，内容应直接包含完整规则
-```
-
-如果只使用 Claude Code，可以只放：
-
-```text
-CLAUDE.md
-```
-
-如果只使用支持 [AGENTS.md](AGENTS.md) 的工具，可以只放：
-
-```text
-AGENTS.md
-```
-
-核心原则是：**哪个 Agent 会自动读取哪个文件，就把完整规则正文放进那个文件里**，不要只放“请参考另一个文件”的转引用说明。
-
 ## 维护建议
 
-- 通用协作规则优先维护在 [AGENTS.md](AGENTS.md)。
-- 面向具体 Agent 使用时，按该工具默认读取的规则文件名复制/改名，并让入口文件直接包含完整规则正文。
-- Claude Code 使用 `CLAUDE.md` 时，不建议只写“引用 AGENTS.md”，应直接放入完整规则，避免规则没有被稳定携带。
-- Codex 等支持 [AGENTS.md](AGENTS.md) 的工具，直接使用 [AGENTS.md](AGENTS.md)，并确保其中是完整规则正文。
-- Skill 的详细规则维护在 [skills/daily-log-sync/SKILL.md](skills/daily-log-sync/SKILL.md)。
-- Codex 调度 Claude Code 协作的详细规则维护在 [skills/claude-orchestrator/SKILL.md](skills/claude-orchestrator/SKILL.md)。
+- 本项目协作入口维护在 [AGENTS.md](AGENTS.md)，负责项目专属元规则、渐进披露索引和阅读路径，不重复通用规则。
+- 通用协作模板维护在 [AGENTS-template.md](AGENTS-template.md)；跨项目规则变化优先同步到该文件。
+- 本项目专属细则维护在 [AGENTSDOC/rules/](AGENTSDOC/rules/)；新增或调整细则时，同步更新 [AGENTS.md](AGENTS.md) 的规则索引。
+- 过程文档一律放到 `AGENTSDOC/plans/<模块>/`，不在仓库根目录扩散，也不入库。
+- Skill 的详细规则维护在各自的 `SKILL.md` 中，例如 [daily-log-sync/SKILL.md](skills/daily-log-sync/SKILL.md) 和 [claude-orchestrator/SKILL.md](skills/claude-orchestrator/SKILL.md)。
+- 改动共享 profile 脚本或脚本对 `~/.claude/profiles/` 的读写协议时，先读取 [shared-skills.md](AGENTSDOC/rules/global/shared-skills.md)。
+- 修改 `skills/*/scripts/` 下脚本的用户可见输出时，先读取 [skill-script-i18n.md](AGENTSDOC/rules/global/skill-script-i18n.md)。
