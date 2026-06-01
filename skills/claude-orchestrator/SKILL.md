@@ -1,25 +1,25 @@
 ---
 name: claude-orchestrator
-description: Explicit-command skill for Codex to delegate bounded local coding work to Claude Code with fixed profile selection rules for architect, implementer, and mechanic, switch the local Claude/provider profile when needed, require handoff discipline, and have Codex review real artifacts before accepting. Use only when the user explicitly invokes this skill, asks Codex to delegate to Claude Code, or requests Claude account/profile orchestration; do not invoke for ordinary coding tasks by default.
+description: Explicit-command skill for Codex to delegate bounded local coding work to Claude Code with fixed profile selection rules for architect, implementer, and mechanic, run Claude CLI with standalone profile settings, check profile health when needed, require handoff discipline, and have Codex review real artifacts before accepting. Use only when the user explicitly invokes this skill, asks Codex to delegate to Claude Code, or requests Claude account/profile orchestration; do not invoke for ordinary coding tasks by default.
 ---
 
 # Claude Orchestrator
 
-此 skill 用于让 Codex 主导 Claude Code 协作：用户在 Codex 中提出任务，Codex 判断是否适合委派，按固定账号分工选择 `architect`、`implementer` 或 `mechanic`，切换 Claude profile 后让 Claude 完成边界明确的子任务，最后由 Codex 审查真实产物。
+此 skill 用于让 Codex 主导 Claude Code 协作：用户在 Codex 中提出任务，Codex 判断是否适合委派，按固定账号分工选择 `architect`、`implementer` 或 `mechanic`，使用对应 profile 的独立 settings 启动 Claude 完成边界明确的子任务，最后由 Codex 审查真实产物。
 
 ## 触发方式
 
 优先用显式命令触发，例如 `/claude-orchestrator <任务描述>` 或 `$claude-orchestrator <任务描述>`。只有用户明确要求“让 Claude Code 协作/委派/切号执行”时，才可自然语言触发。
 
-不要因为普通开发需求自动调用 Claude。调用 Claude 会切换本机账号/profile、消耗外部模型额度，并可能修改文件。
+不要因为普通开发需求自动调用 Claude。调用 Claude 会消耗外部模型额度，并可能修改文件。
 
 ## 工作流程
 
 1. 每次触发本 skill 时，先只根据本次用户请求和当前仓库状态重新判断任务，不沿用上一次 Claude 协作记录中的 profile、任务或 prompt。
 2. 判断任务是否适合委派：适合审查、批量修改、文档、测试补齐、中高复杂度实现；简单直接改动由 Codex 自己完成。
 3. 按本次任务的实际风险、复杂度和交付物重新选择 Claude profile，而不是动态询问用户配置角色，也不是复用上一次选择。
-4. 使用 `scripts/switch-api.js` 切换到目标 profile。
-5. 启动 `claude`，发送边界明确的任务，并要求 Claude 返回结构化 handoff。
+4. 使用 `scripts/switch-api.js --settings-path <profile>` 获取目标 profile 的独立 settings 路径；健康状态缺失、失败或需要强制复测时，先运行 `--ping <profile>`。
+5. 使用 `claude --settings <profile-settings> --setting-sources project,local` 启动 Claude，发送边界明确的任务，并要求 Claude 返回结构化 handoff。
 6. Codex 检查真实 diff、测试结果、修改范围和用户目标，不把 Claude 自述当作验收依据。
 7. 不合格时最多委派一次更具体的返工任务；仍不合格则 Codex 停止委派并本地接管。
 
@@ -33,7 +33,7 @@ profile 名称按任务职责命名，而不是按具体模型或账号命名。
 
 如果任务不适合任何 Claude profile，或者调用 Claude 的成本高于直接处理，Codex 应自己完成。
 
-## 切换账号
+## 独立调用账号
 
 已安装到 Codex 后，推荐先定义通用路径：
 
@@ -42,19 +42,29 @@ $CodexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".c
 $SkillDir = Join-Path $CodexHome "skills\claude-orchestrator"
 ```
 
-切换命令：
+默认模式只输出 profile settings 路径，不覆盖 `~/.claude/settings.json`：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" architect
-node "$SkillDir\scripts\switch-api.js" implementer
-node "$SkillDir\scripts\switch-api.js" mechanic
+$SettingsPath = node "$SkillDir\scripts\switch-api.js" --settings-path architect
+$SettingsPath = node "$SkillDir\scripts\switch-api.js" --settings-path implementer
+$SettingsPath = node "$SkillDir\scripts\switch-api.js" --settings-path mechanic
+```
+
+健康探测：
+
+```powershell
+node "$SkillDir\scripts\switch-api.js" --ping implementer
+node "$SkillDir\scripts\switch-api.js" --refresh-health
 ```
 
 启动 Claude：
 
 ```powershell
-claude
+$SettingsPath = node "$SkillDir\scripts\switch-api.js" --settings-path implementer
+claude --settings "$SettingsPath" --setting-sources project,local
 ```
+
+`--setting-sources project,local` 用于排除当前全局 user settings，避免 `~/.claude/settings.json` 污染独立 profile 调用。只有独立调用无法承载特定账号/provider 配置时，才可显式使用旧版回退命令：`node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite`。该模式会备份并覆盖全局 Claude 配置，不是日常委派流程。
 
 ## 委派规则
 
@@ -62,6 +72,8 @@ claude
 - 只有用户明确要求继续同一个未完成任务，或当前任务本身依赖上一轮 Claude handoff 时，才读取并引用旧 handoff；引用前仍要重新判断本次 profile 和任务边界。
 - 给 Claude 一个有边界的任务和明确交付物。
 - 写清工作目录、目标文件、允许修改的范围和禁止修改的范围。
+- 默认通过 `claude --settings <profile-settings> --setting-sources project,local` 独立运行，不要先覆盖全局 `~/.claude/settings.json`。
+- profile 健康状态为 `down`、缺失或需要确认账号活性时，运行 `scripts/switch-api.js --ping <profile>`；实际调用失败后使用 `--force` 强制刷新。
 - 目标文件或参考资料位于工作目录外时，Claude 命令必须为每个外部目录显式添加 `--add-dir <path>`，避免 `dontAsk` 模式卡在跨目录授权。
 - 优先把 Claude 委派拆成小任务；只读分析、资料收集和排障类任务优先使用 `--effort low`，并限制 `--allowedTools Read,Glob,Grep`。
 - 通过命令行调用 Claude 时，将 Codex 的命令等待时间设为至少 180 秒；如果仍超时，缩小 prompt 范围或拆分任务后再试一次。
@@ -152,7 +164,8 @@ Claude 协作记录：未使用，本次由 Codex 直接完成。
 
 - 不把 Claude token、provider token、profile 快照提交到仓库。
 - 不默认读取 Claude 完整过程输出；验收以真实 diff 和验证命令为准。
-- 切 profile 前保留本机配置备份，除非用户明确关闭。
+- 默认使用独立 profile settings，不覆盖本机全局配置。
+- 只有显式使用 `--mode global-overwrite` 回退时，才覆盖全局配置；覆盖前保留备份，除非用户明确关闭。
 - 失败或风险较高时再读取详细日志，平时只读摘要和必要错误片段。
 
 更完整的使用说明见 `references/usage.md`；账号/profile 文件维护见 `references/profile-management.md`。

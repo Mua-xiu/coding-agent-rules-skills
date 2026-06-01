@@ -30,7 +30,7 @@
 
 ## 模块规则索引（rules/<模块>/）
 
-- 当前暂无模块级规则。后续新增某个 skill、脚本或模块的专项规则时，放入 `AGENTSDOC/rules/<模块>/`，并在本节补充触发条件和路径。
+- 修改 `skills/claude-orchestrator/scripts/` 下 CLI 入口、`scripts/lib/` 模块、profile 调用协议、健康探测或 `global-overwrite` 回退逻辑 → `AGENTSDOC/rules/claude-orchestrator/scripts.md`
 
 ## 阅读路径
 

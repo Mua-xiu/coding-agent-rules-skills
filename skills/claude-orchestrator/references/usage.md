@@ -9,8 +9,8 @@
 -> Codex 忽略上一轮 Claude 协作记录中的默认角色和旧任务
 -> Codex 判断是否适合委派
 -> Codex 按固定分工选择 architect / implementer / mechanic
--> Codex 切换 Claude profile
--> Codex 启动 Claude 并发送边界明确的任务
+-> Codex 获取对应 profile 的独立 settings 路径
+-> Codex 使用 claude --settings + --setting-sources project,local 启动 Claude 并发送边界明确的任务
 -> Claude 返回 handoff
 -> Codex 检查真实 diff 和测试
 -> 不合格时最多再委派一次返工
@@ -89,26 +89,32 @@ node "$SkillDir\scripts\switch-api.js" --init-current mechanic
 node "$SkillDir\scripts\switch-api.js" --list
 ```
 
-6. 检查当前 Claude live 配置和 active profile：
+6. 检查默认模式、旧版覆盖模式 active profile 和当前 Claude live 配置：
 
 ```powershell
 node "$SkillDir\scripts\switch-api.js" --status
 ```
 
-第 5、6 步是可选检查。真正“保存当前账号为 profile”的命令只有 `--init-current <profile>`；`--status` 只是查看当前状态，不会保存、覆盖或切换账号。
+第 5、6 步是可选检查。真正“保存当前账号为 profile”的命令只有 `--init-current <profile>`；保存后脚本会立即执行一次健康探测并写入 `health.json`。`--status` 只是查看当前状态，不会保存、覆盖或切换账号。
 
 ## 日常委派流程
 
 1. Codex 只根据本次用户请求和当前仓库状态判断是否值得委派，不直接复用上一次 Claude 的角色、任务或 prompt。
 2. 按本次任务的实际风险、复杂度和交付物重新选择 `architect`、`implementer` 或 `mechanic`。
-3. 切换 Claude profile 并启动 Claude：
+3. 读取 profile settings 路径，并按需检查健康状态：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" implementer
-claude
+node "$SkillDir\scripts\switch-api.js" --ping implementer
+$SettingsPath = node "$SkillDir\scripts\switch-api.js" --settings-path implementer
 ```
 
-4. 给 Claude 的任务必须边界明确，例如：
+4. 使用独立 settings 启动 Claude：
+
+```powershell
+claude --settings "$SettingsPath" --setting-sources project,local
+```
+
+5. 给 Claude 的任务必须边界明确，例如：
 
 ```text
 You are working in C:\path\to\project.
@@ -128,7 +134,7 @@ Return:
 - Remaining issues
 ```
 
-5. 如果通过非交互命令调用 Claude，按任务边界补齐权限和超时：
+6. 如果通过非交互命令调用 Claude，按任务边界补齐权限和超时：
 
 ```powershell
 $prompt = @'
@@ -144,6 +150,8 @@ Return concise structured findings.
 '@
 
 claude -p $prompt `
+  --settings "$SettingsPath" `
+  --setting-sources project,local `
   --output-format text `
   --permission-mode dontAsk `
   --add-dir "D:\external-reference" `
@@ -153,7 +161,29 @@ claude -p $prompt `
 
 当目标文件或参考资料不在 `You are working in ...` 指定的工作目录内时，必须为外部目录添加 `--add-dir`。只读分析优先限制为 `Read,Glob,Grep`，并使用 `--effort low` 降低响应时间。通过 Codex shell 调用时，命令等待时间建议至少 180 秒。
 
-6. Codex 根据真实 diff 和验证结果验收，不接受只来自 Claude 自述的结论。
+7. Codex 根据真实 diff 和验证结果验收，不接受只来自 Claude 自述的结论。
+
+默认流程不会覆盖 `~/.claude/settings.json`。`--setting-sources project,local` 是独立调用的必要参数，用来排除当前全局 user settings；否则 `claude --settings <file>` 仍可能叠加读取全局配置。如果某个特殊账号/provider 无法通过独立 settings 正常运行，才使用旧版回退模式：
+
+```powershell
+node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite
+```
+
+该命令会先备份再覆盖全局 Claude 配置，日常委派不要使用。
+
+## 健康状态
+
+每个 profile 的健康状态保存到：
+
+```text
+~/.claude/profiles/<profile>/health.json
+```
+
+- `status=ok` 且未超过 TTL 时，普通 `--ping` 会复用最近结果，减少额外模型调用。
+- `status=down` 时，下一次 `--ping` 会重新探测。
+- 实际 Claude 调用失败后，使用 `node "$SkillDir\scripts\switch-api.js" --ping implementer --force` 强制刷新。
+- 使用 `--ping-all` 检查全部 profile；使用 `--refresh-health` 强制刷新全部 profile。
+- `health.json` 使用临时文件和 rename 原子写入，避免并发读取到半写入内容。
 
 ## 会话连续性边界
 
@@ -175,7 +205,7 @@ claude -p $prompt `
 
 ## 命令清单：switch-api.js
 
-`switch-api.js` 负责保存、查看和切换 Claude profile。它会读写用户目录下的 Claude 配置，不会把 profile 保存到本仓库。
+`switch-api.js` 负责保存、查看、解析和探测 Claude profile。默认模式只解析独立 settings 路径，不覆盖全局 Claude 配置；旧版覆盖流程必须显式启用。
 
 | 命令 | 作用 | 常见场景 |
 | --- | --- | --- |
@@ -183,13 +213,17 @@ claude -p $prompt `
 | `node "$SkillDir\scripts\switch-api.js" --init-current architect` | 把当前 Claude live 配置保存为 `architect` profile。 | 初次配置或重新保存账号。 |
 | `node "$SkillDir\scripts\switch-api.js" --init-current implementer` | 把当前 Claude live 配置保存为 `implementer` profile。 | 初次配置或重新保存账号。 |
 | `node "$SkillDir\scripts\switch-api.js" --init-current mechanic` | 把当前 Claude live 配置保存为 `mechanic` profile。 | 初次配置或重新保存账号。 |
-| `node "$SkillDir\scripts\switch-api.js" architect` | 切换到 `architect` profile。 | 高风险审查或架构判断。 |
-| `node "$SkillDir\scripts\switch-api.js" implementer` | 切换到 `implementer` profile。 | 中等复杂度实现、测试、文档。 |
-| `node "$SkillDir\scripts\switch-api.js" mechanic` | 切换到 `mechanic` profile。 | 低风险机械修改。 |
-| `node "$SkillDir\scripts\switch-api.js" --list` | 列出所有 profile，并标记当前 active profile。 | 查看已有账号配置。 |
-| `node "$SkillDir\scripts\switch-api.js" --status` | 查看当前 Claude live 配置摘要，token 会被遮蔽。 | 排查当前是否切到预期账号。 |
-| `node "$SkillDir\scripts\switch-api.js" implementer --dry-run` | 预览切换会复制哪些文件，不实际改配置。 | 切换前确认路径。 |
-| `node "$SkillDir\scripts\switch-api.js" implementer --no-backup` | 切换 profile 但不备份当前 live 配置。 | 只在明确不需要回滚时使用。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer` | 显示 `implementer` 的独立 settings 调用示例。 | 人工查看默认调用方式。 |
+| `node "$SkillDir\scripts\switch-api.js" --settings-path implementer` | 只输出 `implementer` 的 settings 路径。 | 通过命令替换拼接 `claude --settings "$SettingsPath" --setting-sources project,local`。 |
+| `node "$SkillDir\scripts\switch-api.js" --ping implementer` | 探测或复用 `implementer` 健康状态。 | 委派前确认账号活性。 |
+| `node "$SkillDir\scripts\switch-api.js" --ping implementer --force` | 强制重新探测 `implementer`。 | 实际调用失败后刷新状态。 |
+| `node "$SkillDir\scripts\switch-api.js" --ping-all` | 探测全部 profile，允许复用 TTL 内的成功状态。 | 批量检查账号活性。 |
+| `node "$SkillDir\scripts\switch-api.js" --refresh-health` | 强制刷新全部 profile。 | 需要完整重新测活时使用。 |
+| `node "$SkillDir\scripts\switch-api.js" --list` | 列出所有 profile、模型摘要和最近健康状态。 | 查看已有账号配置。 |
+| `node "$SkillDir\scripts\switch-api.js" --status` | 查看默认模式、旧覆盖 active profile 和 live 配置摘要，token 会被遮蔽。 | 排查当前配置。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite --dry-run` | 预览旧版覆盖模式会复制哪些文件。 | 回退前确认路径。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite` | 备份并覆盖全局 Claude 配置。 | 仅在独立 settings 无法工作时回退。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite --no-backup` | 覆盖全局配置但不备份。 | 只在明确不需要回滚时使用。 |
 | `node "$SkillDir\scripts\switch-api.js" --profiles-root "D:\profiles" --list` | 使用自定义 profile 根目录。 | 不想把 profile 放在默认用户目录时。 |
 
 ## 账号配置和备份位置
@@ -200,7 +234,7 @@ profile 快照默认保存到用户目录：
 ~/.claude/profiles/<profile>/
 ```
 
-切换前的 live 配置备份默认保存到：
+只有显式使用 `--mode global-overwrite` 时，覆盖前的 live 配置备份才会保存到：
 
 ```text
 ~/.claude/profile-switch-backups/
@@ -267,7 +301,23 @@ Claude 协作记录：未使用，本次由 Codex 直接完成。
 
 `SKILL.md`：Codex 触发 skill 后读取的核心规则，负责固定分工、委派和审查流程。
 
-`scripts/switch-api.js`：保存、查看、切换 Claude profile。它只在用户目录读写真实 Claude 配置。
+`scripts/switch-api.js`：CLI 薄入口，只负责把命令分发给 `scripts/lib/` 下的模块。
+
+`scripts/lib/constants.js`：路径、模式、TTL、隔离调用参数和旧版回退管理文件清单。
+
+`scripts/lib/args.js`：命令行参数解析和单主操作约束。
+
+`scripts/lib/fs-json.js`：路径展开、JSON 读写和原子写入。
+
+`scripts/lib/profile-store.js`：profile 路径、settings 摘要、列表、状态展示和 settings 路径输出。
+
+`scripts/lib/health.js`：健康探测、`health.json` 写入、TTL 复用和失败计数。
+
+`scripts/lib/profile-init.js`：保存当前 live 配置为 profile，并执行首次健康探测。
+
+`scripts/lib/global-overwrite.js`：旧版全局覆盖回退和备份逻辑。
+
+`scripts/lib/output.js`：用户可见错误和帮助文本输出。
 
 `references/profile-management.md`：profile 存储和维护说明。只有账号切换异常、Claude Code 配置位置变化、增加 provider 时才需要读取。
 

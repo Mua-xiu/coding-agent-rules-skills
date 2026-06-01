@@ -1,6 +1,6 @@
 # Claude Profile 管理说明
 
-此文档说明 `claude-orchestrator` 如何保存和切换 Claude Code 的账号/provider 配置。当前 active skill 使用固定 profile 约定：`architect`、`implementer`、`mechanic`。
+此文档说明 `claude-orchestrator` 如何保存和独立调用 Claude Code 的账号/provider 配置。当前 active skill 使用固定 profile 约定：`architect`、`implementer`、`mechanic`。
 
 这三个名称按任务职责命名，不按具体模型厂商或个人账号命名。用户可以把 Claude、Gemini、DeepSeek、Mimo 或其他 provider 账号保存到对应 profile；Codex 只关心 profile 代表的能力分工。
 
@@ -29,14 +29,23 @@ $SkillDir = "C:\Users\lin\Desktop\project\Agent\coding-agent-rules-skills\skills
 ~/.claude/profiles/<profile>/
 ```
 
-当前脚本管理的 live 配置：
+默认调用模型：
 
 ```text
-~/.claude/settings.json  <-  ~/.claude/profiles/<profile>/settings.json
-~/.claude.json           <-  ~/.claude/profiles/<profile>/.claude.json
+claude --settings ~/.claude/profiles/<profile>/settings.json --setting-sources project,local
 ```
 
-`settings.json` 是必需文件，因为 provider env、模型别名通常在这里；`.claude.json` 是可选文件，因为不同 Claude Code 版本或登录方式可能会在这里保存账号/会话信息。
+`settings.json` 是必需文件，因为 provider env、模型别名通常在这里。默认模式把 profile 快照作为 `claude --settings` 的调用源，并通过 `--setting-sources project,local` 排除全局 user settings，不覆盖也不依赖 `~/.claude/settings.json`。
+
+每个 profile 还可以包含：
+
+```text
+~/.claude/profiles/<profile>/.claude.json
+~/.claude/profiles/<profile>/profile-meta.json
+~/.claude/profiles/<profile>/health.json
+```
+
+`.claude.json` 是旧版全局覆盖回退模式的可选快照。`health.json` 由脚本独占管理，记录最近一次活性探测结果；不要手动修改。
 
 ## 固定 profile 约定
 
@@ -60,13 +69,17 @@ $SkillDir = "C:\Users\lin\Desktop\project\Agent\coding-agent-rules-skills\skills
 | `node "$SkillDir\scripts\switch-api.js" --init-current architect` | 把当前 Claude live 配置保存为 `architect` profile。 |
 | `node "$SkillDir\scripts\switch-api.js" --init-current implementer` | 把当前 Claude live 配置保存为 `implementer` profile。 |
 | `node "$SkillDir\scripts\switch-api.js" --init-current mechanic` | 把当前 Claude live 配置保存为 `mechanic` profile。 |
-| `node "$SkillDir\scripts\switch-api.js" architect` | 切换到 `architect` profile。 |
-| `node "$SkillDir\scripts\switch-api.js" implementer` | 切换到 `implementer` profile。 |
-| `node "$SkillDir\scripts\switch-api.js" mechanic` | 切换到 `mechanic` profile。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer` | 显示 `implementer` 的独立 settings 调用示例。 |
+| `node "$SkillDir\scripts\switch-api.js" --settings-path implementer` | 只输出 `implementer` 的 settings 路径。 |
+| `node "$SkillDir\scripts\switch-api.js" --ping implementer` | 探测或复用 `implementer` 健康状态。 |
+| `node "$SkillDir\scripts\switch-api.js" --ping implementer --force` | 强制刷新 `implementer` 健康状态。 |
+| `node "$SkillDir\scripts\switch-api.js" --ping-all` | 探测全部 profile。 |
+| `node "$SkillDir\scripts\switch-api.js" --refresh-health` | 强制刷新全部 profile。 |
 | `node "$SkillDir\scripts\switch-api.js" --list` | 列出所有 profile。 |
-| `node "$SkillDir\scripts\switch-api.js" --status` | 查看当前 live 配置摘要，token 会被遮蔽。 |
-| `node "$SkillDir\scripts\switch-api.js" implementer --dry-run` | 预览切换行为，不实际复制文件。 |
-| `node "$SkillDir\scripts\switch-api.js" implementer --no-backup` | 切换 profile 但不备份当前 live 配置。 |
+| `node "$SkillDir\scripts\switch-api.js" --status` | 查看默认模式、旧覆盖 active profile 和 live 配置摘要，token 会被遮蔽。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite --dry-run` | 预览旧版覆盖行为，不实际复制文件。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite` | 备份并覆盖全局 Claude 配置，仅用于回退。 |
+| `node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite --no-backup` | 覆盖全局配置但不备份，仅在明确不需要回滚时使用。 |
 | `node "$SkillDir\scripts\switch-api.js" --profiles-root "D:\profiles" --list` | 使用自定义 profile 根目录。 |
 
 ## 创建 profile
@@ -97,32 +110,30 @@ node "$SkillDir\scripts\switch-api.js" --init-current mechanic
 node "$SkillDir\scripts\switch-api.js" --init-current implementer --force
 ```
 
-## 切换 profile
+## 独立调用 profile
 
-手动切换：
+默认调用：
 
 ```powershell
-node "$SkillDir\scripts\switch-api.js" architect
-node "$SkillDir\scripts\switch-api.js" implementer
-node "$SkillDir\scripts\switch-api.js" mechanic
+$SettingsPath = node "$SkillDir\scripts\switch-api.js" --settings-path implementer
+claude --settings "$SettingsPath" --setting-sources project,local
 ```
 
-如果旧流程依赖 `node ~/.claude/switch-api.js <profile>`，可以把脚本复制到 Claude 用户目录：
+默认模式不会修改 `~/.claude/settings.json`。`--setting-sources project,local` 用于避免当前全局 user settings 影响独立 profile。若某个特殊账号/provider 无法通过独立 settings 运行，才使用旧版全局覆盖回退：
 
 ```powershell
-Copy-Item -Force "$SkillDir\scripts\switch-api.js" "$HOME\.claude\switch-api.js"
-node ~/.claude/switch-api.js implementer
+node "$SkillDir\scripts\switch-api.js" implementer --mode global-overwrite
 ```
 
 ## 备份位置
 
-每次切换前，脚本会把当前 live 配置备份到：
+只有显式使用 `--mode global-overwrite` 时，脚本才会把当前 live 配置备份到：
 
 ```text
 ~/.claude/profile-switch-backups/
 ```
 
-切换状态记录在：
+旧版覆盖状态记录在：
 
 ```text
 ~/.claude/active-profile.json
@@ -135,17 +146,39 @@ node "$SkillDir\scripts\switch-api.js" --list
 node "$SkillDir\scripts\switch-api.js" --status
 ```
 
-`--status` 会遮蔽 token 字段，不应输出完整密钥。
+`--status` 会遮蔽 token 字段，不应输出完整密钥。`active-profile.json` 只表示最近一次旧版全局覆盖操作，不表示默认独立 settings 调用已经修改全局配置。
+
+## 健康状态
+
+每个 profile 的活性探测结果保存在：
+
+```text
+~/.claude/profiles/<profile>/health.json
+```
+
+至少包含：
+
+- `status`
+- `last_ping_at`
+- `latency_ms`
+- `model`
+- `error_code`
+- `error_message_raw`
+- `error_message_zh`
+- `consecutive_failures`
+
+脚本使用临时文件和 rename 原子替换 `health.json`。成功状态在 TTL 内可以复用；失败状态允许下一次任务开始时重新探测。实际调用失败后，使用 `--ping <profile> --force` 强制刷新。
 
 ## Claude Code 版本变化时
 
 Claude Code 可能调整认证或 provider 配置的存储位置。如果切换后账号状态不对：
 
 1. 手动登录或切换一次 Claude Code。
-2. 对比用户目录下哪些 Claude 配置文件发生变化。
-3. 只把确实需要管理的文件加入 `scripts/switch-api.js` 的 `MANAGED_FILES`。
-4. profile 快照仍然只保存到 `~/.claude/profiles/`，不要提交到 git。
-5. 执行小任务验证账号确实切换成功。
+2. 先用 `claude --settings <profile-settings> --setting-sources project,local` 执行轻量 prompt，确认独立调用是否仍然有效。
+3. 如果确实只能依赖其它 live 配置，再对比用户目录下哪些 Claude 配置文件发生变化。
+4. 只把旧版回退确实需要管理的文件加入 `scripts/lib/constants.js` 的 `MANAGED_FILES`。
+5. profile 快照仍然只保存到 `~/.claude/profiles/`，不要提交到 git。
+6. 执行小任务验证账号确实可用。
 
 ## 安全规则
 
