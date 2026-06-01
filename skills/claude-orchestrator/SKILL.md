@@ -13,6 +13,10 @@ description: Explicit-command skill for Codex to delegate bounded local coding w
 
 不要因为普通开发需求自动调用 Claude。调用 Claude 会消耗外部模型额度，并可能修改文件。
 
+## Claude Code 版本兼容说明
+
+当前脚本和命令仅在 `2.1.146 (Claude Code)` 下完成验证。更高或更低版本的兼容说明和自行调整建议见 `references/usage.md` 与 `references/profile-management.md`。
+
 ## 工作流程
 
 1. 每次触发本 skill 时，先只根据本次用户请求和当前仓库状态重新判断任务，不沿用上一次 Claude 协作记录中的 profile、任务或 prompt。

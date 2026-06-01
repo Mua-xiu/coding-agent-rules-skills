@@ -85,6 +85,12 @@
 
 [claude-orchestrator](skills/claude-orchestrator/) 用于在 Codex 中显式委派本机 Claude Code 协作：Codex 接收用户任务后，按固定分工选择 `architect`、`implementer`、`mechanic` 三个 Claude/provider profile，切换账号配置并让 Claude Code 完成边界明确的子任务，最后由 Codex 检查真实 diff、测试结果和风险后决定是否接受。
 
+### Claude Code 版本兼容说明
+
+当前 `claude-orchestrator` 的脚本和命令是在 `2.1.146 (Claude Code)` 下开发、测试和验证的。更高或更低版本的 Claude Code 尚未在本仓库中完成验证，可能存在参数、settings 读取方式、权限模式或认证存储位置差异。
+
+用户下载或迁移到其它机器后，可以根据自己的 Claude Code 版本、provider 配置和实际需求，自行调整相关脚本与命令；调整共享 profile 脚本或调用协议时，建议同步查看本仓库的项目规则索引和 `AGENTSDOC/rules/` 下的约束说明。
+
 这个 skill 适合：
 
 - 让 Claude Code 做独立审查、批量修改、测试补齐、文档整理；

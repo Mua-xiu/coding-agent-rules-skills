@@ -29,6 +29,12 @@
 $claude-orchestrator 帮我让 Claude Code 补齐测试，并由 Codex 审查
 ```
 
+## Claude Code 版本兼容说明
+
+当前 `claude-orchestrator` 的脚本和命令是在 `2.1.146 (Claude Code)` 下开发、测试和验证的。更高或更低版本的 Claude Code 尚未在本仓库中完成验证，可能存在参数、settings 读取方式、权限模式或认证存储位置差异。
+
+用户下载或迁移到其它机器后，可以根据自己的 Claude Code 版本、provider 配置和实际需求，自行调整相关脚本与命令；调整共享 profile 脚本或调用协议时，应同步维护 `SKILL.md`、本说明文档、`references/profile-management.md` 以及仓库规则索引。
+
 ## 固定账号分工
 
 当前版本采用固定 profile 约定，不再要求用户维护 `profile-roles.json`。

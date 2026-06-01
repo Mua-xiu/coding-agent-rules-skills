@@ -4,6 +4,12 @@
 
 这三个名称按任务职责命名，不按具体模型厂商或个人账号命名。用户可以把 Claude、Gemini、DeepSeek、Mimo 或其他 provider 账号保存到对应 profile；Codex 只关心 profile 代表的能力分工。
 
+## Claude Code 版本兼容说明
+
+当前 profile 保存、独立 settings 调用、健康探测和 `global-overwrite` 回退流程，是在 `2.1.146 (Claude Code)` 下开发、测试和验证的。更高或更低版本的 Claude Code 尚未在本仓库中完成验证，可能存在参数、settings 读取方式、权限模式或认证存储位置差异。
+
+用户下载或迁移到其它机器后，可以根据自己的 Claude Code 版本、provider 配置和实际需求，自行调整相关脚本与命令。若 Claude Code 版本变化导致配置文件位置、认证文件或 `--settings` 行为变化，应优先在本说明中记录差异，再同步修改脚本和命令示例。
+
 ## 先定义通用路径
 
 所有命令都建议先定义 `$SkillDir`，这样可以从任意 PowerShell 当前目录执行：
