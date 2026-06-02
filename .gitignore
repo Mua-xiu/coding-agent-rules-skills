@@ -2,4 +2,6 @@
 .codex-claude-runs/
 .codex-claude-runs-test/
 skills/claude-orchestrator-runtime-gate-notes/
+roundtable-runs/
+test-skill
 AGENTSDOC/plans/

@@ -18,7 +18,7 @@
 - 共享组：`claude-orchestrator` + `claude-roundtable`
   - 脚本运行时共享状态目录：`~/.claude/profiles/<profile>/`（仓库任务不直接修改该用户目录）
   - 主版本脚本：`skills/claude-orchestrator/scripts/switch-api.js`
-  - 从版本脚本：`skills/claude-roundtable/scripts/switch-api.js`（如该路径存在）
+  - 从版本脚本：`skills/claude-roundtable/scripts/switch-api.js`
   - 基本要求：先改主版本，再同步从版本；不允许只改其中一份。
 
 未来如果新增共享脚本、共享工具或共享本地状态读写协议，必须先在本节登记共享组、主从路径和脚本约定，再开始实现。
@@ -31,6 +31,7 @@
 ## 模块规则索引（rules/<模块>/）
 
 - 修改 `skills/claude-orchestrator/scripts/` 下 CLI 入口、`scripts/lib/` 模块、profile 调用协议、健康探测或 `global-overwrite` 回退逻辑 → `AGENTSDOC/rules/claude-orchestrator/scripts.md`
+- 修改 `skills/claude-roundtable/scripts/roundtable.js`、`scripts/roundtable-lib/`、讨论记录格式、参与者筛选或模型间定向消息路由 → `AGENTSDOC/rules/claude-roundtable/scripts.md`
 
 ## 阅读路径
 

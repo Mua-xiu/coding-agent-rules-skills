@@ -19,7 +19,9 @@
 - 保持 `switch-api.js` 为薄入口；新增能力应优先放入职责匹配的 `scripts/lib/*.js` 模块。
 - 不要把 profile 存储、健康探测、全局覆盖和参数解析重新混回同一个文件。
 - 默认独立调用 Claude 必须使用 `--settings <profile-settings> --setting-sources project,local`，避免叠加读取全局 user settings。
+- 委派前必须先运行 `--ping <profile>`，再读取 `--settings-path <profile>`；`--settings-path` 只输出路径，不承担测活职责。
 - `health.json` 只能由脚本管理，写入必须使用临时文件和 rename 原子替换。
+- 健康缓存默认 TTL 为 5 小时：普通 `--ping <profile>` 和 `--ping-all` 允许复用 TTL 内的 `status=ok`；`--ping <profile> --force` 和 `--refresh-health` 强制重测；`status=down` 不受 TTL 保护。
 - `global-overwrite` 只能作为显式回退模式，不得成为默认流程。
 - 用户可见脚本输出继续遵守 `AGENTSDOC/rules/global/skill-script-i18n.md` 的中英双语规范。
 - 修改仓库版 skill 后，如需在当前机器上实测，必须同步到 `~/.codex/skills/claude-orchestrator`，并在反馈中说明是否已同步。

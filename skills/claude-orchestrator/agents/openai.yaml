@@ -1,7 +1,7 @@
 interface:
   display_name: "Claude Orchestrator"
   short_description: "Delegate local Claude Code work."
-  default_prompt: "Use $claude-orchestrator to analyze the current task, route it to architect, implementer, or mechanic by fixed profile rules, run Claude with standalone profile settings, require a handoff, and review the changed files before accepting."
+  default_prompt: "Use $claude-orchestrator to analyze the current task, route bounded work to the matching architect, implementer, or mechanic profile only when that profile exists and is healthy, fall back to Codex when delegation is unavailable, use stdout handoff by default, and review real artifacts before accepting."
 
 policy:
   allow_implicit_invocation: false

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Claude Roundtable"
+  short_description: "多 Claude profile 结构化讨论与风险分级"
+  default_prompt: "Use $claude-roundtable to run a structured multi-profile discussion and synthesize the risks."
