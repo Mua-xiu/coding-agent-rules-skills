@@ -16,6 +16,7 @@
 │   └── plans/                         # 本地过程文档工作台，默认不入库
 └── skills/
     ├── daily-log-sync/                # Claude Code 日志同步 skill
+    ├── project-doc-bootstrap/         # 初始化项目级 Agent 协作文档和渐进披露规则的 skill
     ├── claude-orchestrator/           # Codex 调度本机 Claude Code 协作的 skill
     └── claude-roundtable/             # 多 Claude profile 结构化讨论 skill
 ```
@@ -43,6 +44,30 @@
 - 其他 Coding Agent：按对应工具文档要求，复制到它默认读取的规则文件名。
 
 注意：本仓库根目录的 [AGENTS.md](AGENTS.md) 是项目专属入口，不建议直接复制到其他项目；跨项目复用请使用 [AGENTS-template.md](AGENTS-template.md)。
+
+## project-doc-bootstrap skill
+
+[project-doc-bootstrap](skills/project-doc-bootstrap/) 用于在项目搭建后初始化“文档先行”的 Agent 协作规则结构。
+
+它不限定前端技术栈，同样适用于后端、全栈、CLI、桌面端、移动端、Agent、MCP、数据处理、基础设施和类库项目；实际生成内容以目标项目中可验证的结构和配置为准。
+
+它会指导 Agent 先读取项目事实，再生成或维护：
+
+- 根目录 `AGENTS.md`；
+- 可选的 `CLAUDE.md` 双入口；
+- `AGENTSDOC/rules/global/` 下的基础规则；
+- `AGENTSDOC/plans/` 本地过程文档工作台；
+- 根入口中的渐进式披露规则索引。
+
+这个 skill 的重点是建立项目长期协作边界，而不是一次性发明所有未来规则。它不会默认覆盖已有协作文档，也不会把某个参考项目的业务规则硬套到新项目。
+
+适合在新项目初始化后使用：
+
+```text
+$project-doc-bootstrap 为当前项目初始化基础协作文档和渐进式规则目录
+```
+
+模板与生成细则见 [default-files.md](skills/project-doc-bootstrap/references/default-files.md)。
 
 ## daily-log-sync skill
 
@@ -186,6 +211,7 @@ node <skill-dir>\scripts\roundtable.js `
 - 通用协作模板维护在 [AGENTS-template.md](AGENTS-template.md)；跨项目规则变化优先同步到该文件。
 - 本项目专属细则维护在 [AGENTSDOC/rules/](AGENTSDOC/rules/)；新增或调整细则时，同步更新 [AGENTS.md](AGENTS.md) 的规则索引。
 - 过程文档一律放到 `AGENTSDOC/plans/<模块>/`，不在仓库根目录扩散，也不入库。
+- 新项目需要初始化 Agent 协作文档时，使用 [project-doc-bootstrap/SKILL.md](skills/project-doc-bootstrap/SKILL.md)。
 - Skill 的详细规则维护在各自的 `SKILL.md` 中，例如 [daily-log-sync/SKILL.md](skills/daily-log-sync/SKILL.md) 和 [claude-orchestrator/SKILL.md](skills/claude-orchestrator/SKILL.md)。
 - 多 profile 讨论能力维护在 [claude-roundtable/SKILL.md](skills/claude-roundtable/SKILL.md)，最终结论仍由 Codex 裁决。
 - 改动共享 profile 脚本或脚本对 `~/.claude/profiles/` 的读写协议时，先读取 [shared-skills.md](AGENTSDOC/rules/global/shared-skills.md)。
